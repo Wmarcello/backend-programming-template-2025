@@ -1,24 +1,34 @@
-const { env, port } = require('./core/config');
-const logger = require('./core/logger')('app');
-const server = require('./core/server');
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+require('dotenv').config();
 
-const app = server.listen(port, (err) => {
-  if (err) {
-    logger.fatal(err, 'Failed to start the server.');
-    process.exit(1);
-  } else {
-    logger.info(`Server runs at port ${port} in ${env} environment`);
-  }
+const routes = require('./routes');
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('MongoDB connection error:', err));
+
+// Routes
+app.use('/api', routes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    status: 'error',
+    message: 'Something went wrong!'
+  });
 });
 
-process.on('uncaughtException', (err) => {
-  logger.fatal(err, 'Uncaught exception.');
-
-  // Shutdown the server gracefully
-  app.close(() => process.exit(1));
-
-  // If a graceful shutdown is not achieved after 1 second,
-  // shut down the process completely
-  setTimeout(() => process.abort(), 1000).unref();
-  process.exit(1);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
